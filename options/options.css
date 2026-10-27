@@ -70,6 +70,25 @@ h2 {
   color: var(--muted);
 }
 
+.collapse-toggle {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.collapse-toggle::after {
+  content: "+";
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+.collapse-toggle[aria-expanded="true"]::after {
+  content: "-";
+}
+
 p {
   color: var(--muted);
 }

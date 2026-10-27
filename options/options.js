@@ -184,6 +184,16 @@ saveButton.addEventListener('click', () => save().catch(err => showStatus('Save 
 themeMode.addEventListener('change', () => {
     DH.settings.applyTheme(Object.assign({}, settings, { theme: themeMode.value }));
 });
+const advancedSection = document.getElementById('advanced-section');
+const advancedToggle = advancedSection.querySelector('.collapse-toggle');
+const advancedBody = advancedSection.querySelector('.collapse-body');
+
+advancedToggle.addEventListener('click', () => {
+    const open = advancedBody.hidden;
+    advancedBody.hidden = !open;
+    advancedToggle.setAttribute('aria-expanded', String(open));
+});
+
 resetButton.addEventListener('click', async () => {
     settings = JSON.parse(JSON.stringify(DH.settings.DEFAULTS));
     await DH.settings.save(settings);
