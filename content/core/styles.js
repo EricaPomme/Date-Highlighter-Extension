@@ -23,9 +23,11 @@
             if (stage.italic) lines.push('  font-style: italic !important;');
             if (stage.underline) lines.push('  text-decoration: underline !important;');
             if (stage.border) {
-                // Padded background box, matching the prior art addon.
+                // Faint rounded background chip plus a 1px outline in the
+                // same colour as the foreground text.
                 lines.push('  background: var(--dh-' + stage.id + '-bg) !important;');
-                lines.push('  padding: 0 2px !important;');
+                lines.push('  border: 1px solid var(--dh-' + stage.id + '-color) !important;');
+                lines.push('  padding: 0 2px;');
                 lines.push('  border-radius: 2px !important;');
             }
             return '.dh-stage-' + stage.id + ' {\n' + lines.join('\n') + '\n}';

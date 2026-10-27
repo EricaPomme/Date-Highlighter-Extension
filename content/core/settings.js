@@ -8,7 +8,7 @@
 
     // Stage bounds are day offsets relative to today (0 = today, negative = past).
     // min/max are inclusive. Stages are checked in array order; first match wins.
-    // Style flags: border = padded background box, bold/italic/underline = text.
+    // Style flags: border = rounded chip with a 1px text-colour outline, bold/italic/underline = text.
     function defaultStages() {
         return [
             {
@@ -60,6 +60,7 @@
         whitelist: {},
         dayFirst: true,
         fuzzy: true,
+        // Theme applies to page highlights and the extension's own UI pages.
         // 'auto' follows prefers-color-scheme; 'light' and 'dark' force a theme.
         theme: 'auto',
         disabledFormats: [],
