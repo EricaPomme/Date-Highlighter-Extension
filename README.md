@@ -4,6 +4,16 @@ Browser extension (Manifest V3) that highlights dates on whitelisted sites by
 urgency stage: overdue, today, tomorrow, soon, upcoming, and future. Successor
 to the Jira-specific *Jira Date Redifier*.
 
+## Table of Contents
+
+- [Features](#features)
+- [Layout](#layout)
+- [How highlighting is applied](#how-highlighting-is-applied)
+- [Refining selectors](#refining-selectors)
+  - [Example: Jira (anonymized)](#example-jira-anonymized)
+- [Development](#development)
+- [Deferred](#deferred)
+
 ## Features
 
 - **Detection** of dates as raw text (multiple formats), fuzzy phrases
@@ -27,8 +37,13 @@ to the Jira-specific *Jira Date Redifier*.
   | Day month year | 23 October 2026 |
   | Numeric slash | 23/10/26 (day-first or month-first setting) |
 
-- **Popup** for quick control: global enable, current-site toggle, and a link
-  to the full settings page.
+- **Popup** for quick control: track/untrack the current site, toggle formats
+  and fuzzy dates, and a link to the full settings page.
+- **Live updates** - saving settings, untracking a site, or switching the
+  master switch off takes effect in open tabs immediately, with no reload.
+- **Stays out of the way** - editable regions are never touched, inline SVG
+  text is left alone, and the page's own text nodes are preserved wherever
+  possible.
 
 ## Layout
 
@@ -37,6 +52,31 @@ to the Jira-specific *Jira Date Redifier*.
 - `popup/` - toolbar popup
 - `options/` - full settings page (whitelist and selectors, formats, stage
   colours and thresholds, theme)
+- `tests/` - Node test suites (see [Development](#development))
+
+## How highlighting is applied
+
+Two strategies share one scan, and both are undone when a site is untracked or
+settings change:
+
+- **Element marks.** When an element's entire text is a single date -- a Jira
+  due-date cell, a `<time>` element, a table cell -- the stage class goes on
+  that element. The page keeps its own text nodes, and the full chip styling
+  (background, 1px outline, padding, bold, italic, underline) applies.
+- **Ranges.** A date inside running text is registered with the CSS Custom
+  Highlight API, which highlights the text without touching the DOM at all.
+  That API supports colour, background colour, and underline only, so dates in
+  prose do not get the chip outline, bold, or italic treatment. Browsers
+  without the API fall back to wrapping the date in a `<span>`, which does
+  replace the surrounding text node.
+
+Positions and marks carry a `data-dh` attribute, so cleanup only ever removes
+what the extension created. Both paths skip `contenteditable` hosts (typing in
+a Jira comment box is never disturbed), form controls, `<script>`/`<style>`
+content, and inline SVG.
+
+Pages that stay open across midnight are re-bucketed automatically, and so are
+tabs restored from the background the next day.
 
 ## Refining selectors
 
@@ -50,6 +90,8 @@ the elements you actually care about:
 
 An entry may carry several selectors, comma-separated after the colon. The
 scanner highlights dates found inside any element matching any of them.
+Scoped entries also pick up content that the site renders later (SPA boards,
+inline-edit views, re-rendered panes) without a reload.
 
 ### Example: Jira (anonymized)
 
@@ -91,13 +133,39 @@ Tips:
 - Selectors must be valid CSS. Invalid selectors are ignored; enable
   **Debug logging** in Advanced settings to see a console warning naming the
   offending selector.
+- Because a site's entries can be covered by several patterns, the popup says
+  **Tracked via `*.example.com`** and leaves the wildcard to the settings page
+  rather than adding a second, wider entry for that one host.
 
 ## Development
 
 Load the directory as an unpacked extension (Edge: `edge://extensions`,
 Chrome: `chrome://extensions`, enable Developer mode). Settings live in
-`chrome.storage.sync`.
+`chrome.storage.sync`. The extension requests `storage` and `activeTab` only:
+site access is read from the popup when you open it, not granted for every
+page.
+
+Tests run on Node with no build step (jsdom is the only developer dependency):
+
+```sh
+npm install
+npm test
+```
+
+- `tests/test.js` - pure logic: formats, fuzzy parsing, stage bucketing, date
+  attributes, whitelist matching, stored-settings validation.
+- `tests/dom.test.js` - scanner behaviour in a simulated page, covering both
+  rendering paths, scoped sites, editable regions, SVG, mutation storms, and
+  midnight rollover.
+- `tests/ui.test.js` - popup and options behaviour, including save failures,
+  invalid ranges, and reset.
+
+Expectations are expressed in local calendar terms, so the whole suite passes
+in any timezone; run it with `TZ=America/Toronto npm test` (or any other zone)
+to confirm after touching date math.
 
 ## Deferred
 
-Time-of-day handling, non-English month names, and Firefox packaging.
+Time-of-day handling, non-English month names, Firefox packaging, and
+per-site content-script registration (`chrome.scripting.registerContentScripts`)
+so the content script is not loaded on unlisted sites at all.
