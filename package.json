@@ -1,0 +1,15 @@
+{
+  "name": "date-highlighter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser extension that highlights dates on whitelisted sites by urgency stage.",
+  "scripts": {
+    "test": "node tests/test.js && node tests/dom.test.js && node tests/ui.test.js",
+    "test:logic": "node tests/test.js",
+    "test:dom": "node tests/dom.test.js",
+    "test:ui": "node tests/ui.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.3"
+  }
+}
