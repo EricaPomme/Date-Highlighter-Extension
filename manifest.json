@@ -5,7 +5,7 @@
   "description": "Highlights dates on whitelisted sites by urgency stage (overdue, today, soon, upcoming).",
   "permissions": [
     "storage",
-    "tabs"
+    "activeTab"
   ],
   "action": {
     "default_title": "Date Highlighter",
