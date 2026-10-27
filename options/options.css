@@ -8,6 +8,8 @@
   --button-fg: #1a1a1a;
   --button-hover: #e2e2e2;
   --ok: #1a7f37;
+  --err: #ad0000;
+  --err-bg: #fff3f3;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,6 +22,8 @@
     --button-fg: #eaeaea;
     --button-hover: #3d3d3d;
     --ok: #5bd07a;
+    --err: #ff6b6b;
+    --err-bg: #5c1a1a;
   }
 }
 
@@ -33,6 +37,8 @@
   --button-fg: #eaeaea;
   --button-hover: #3d3d3d;
   --ok: #5bd07a;
+  --err: #ff6b6b;
+  --err-bg: #5c1a1a;
 }
 
 :root[data-theme='light'] {
@@ -44,6 +50,8 @@
   --button-fg: #1a1a1a;
   --button-hover: #e2e2e2;
   --ok: #1a7f37;
+  --err: #ad0000;
+  --err-bg: #fff3f3;
 }
 
 body {
@@ -174,4 +182,13 @@ input[type="color"] {
 
 #status {
   color: var(--ok);
+}
+
+#status.error {
+  color: var(--err);
+}
+
+td input[type="number"].invalid {
+  border-color: var(--err);
+  background: var(--err-bg);
 }

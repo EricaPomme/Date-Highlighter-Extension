@@ -1,4 +1,6 @@
 // options.js -- settings editor.
+// Saves are validated here (whole-day ranges, parseable site lines) and
+// sanitized again in DH.settings.save, so invalid values never reach storage.
 'use strict';
 
 const whitelistBox = document.getElementById('whitelist');
@@ -11,9 +13,17 @@ const debugToggle = document.getElementById('debug-toggle');
 const enabledToggle = document.getElementById('enabled-toggle');
 const saveButton = document.getElementById('save');
 const resetButton = document.getElementById('reset');
+const reloadButton = document.getElementById('reload');
 const statusLabel = document.getElementById('status');
 
+const DAY_LIMIT = 36500;
+
 let settings = null;
+let dirty = false;
+let statusTimer = null;
+// JSON of the last settings this page wrote, so the storage change Chrome
+// echoes back to the writer is not mistaken for another tab's edit.
+let lastSaved = null;
 
 // Formats are shown as checkboxes; the registry stays the single source of
 // truth for ids and labels.
@@ -60,11 +70,11 @@ function renderStages() {
         row.appendChild(nameCell);
 
         const minCell = document.createElement('td');
-        minCell.appendChild(numInput(stage.min, -36500, 36500));
+        minCell.appendChild(numInput(stage.min, -DAY_LIMIT, DAY_LIMIT));
         row.appendChild(minCell);
 
         const maxCell = document.createElement('td');
-        maxCell.appendChild(numInput(stage.max, -36500, 36500));
+        maxCell.appendChild(numInput(stage.max, -DAY_LIMIT, DAY_LIMIT));
         row.appendChild(maxCell);
 
         const hlCell = document.createElement('td');
@@ -104,43 +114,77 @@ function renderStages() {
     }
 }
 
-function collectStages() {
-    const byId = new Map(settings.stages.map(s => [s.id, s]));
+// Reads the stage table back into fresh stage objects. Returns either
+// { stages } or { error }, so a typo blocks the save instead of storing a
+// range that can never match.
+function readStages() {
+    const byId = new Map(settings.stages.map(stage => [stage.id, stage]));
+    const stages = [];
+
     for (const row of stageRows.querySelectorAll('tr')) {
-        const stage = byId.get(row.dataset.stageId);
-        if (!stage) continue;
+        const current = byId.get(row.dataset.stageId);
+        if (!current) continue;
+
         const numbers = row.querySelectorAll('input[type="number"]');
-        stage.min = parseInt(numbers[0].value, 10);
-        stage.max = parseInt(numbers[1].value, 10);
-        stage.highlight = row.querySelector('input[type="checkbox"]').checked;
+        const min = Number.parseInt(numbers[0].value, 10);
+        const max = Number.parseInt(numbers[1].value, 10);
+        const invalid = !Number.isInteger(min) || !Number.isInteger(max) ||
+            Math.abs(min) > DAY_LIMIT || Math.abs(max) > DAY_LIMIT || min > max;
+
+        numbers[0].classList.toggle('invalid', invalid);
+        numbers[1].classList.toggle('invalid', invalid);
+        if (invalid) {
+            return {
+                error: current.label + ': use whole day offsets from -' + DAY_LIMIT +
+                    ' to ' + DAY_LIMIT + ', with From no greater than To.'
+            };
+        }
+
+        const stage = {
+            id: current.id,
+            min: min,
+            max: max,
+            highlight: row.querySelector('input[type="checkbox"]').checked
+        };
         for (const box of row.querySelectorAll('input[data-flag]')) {
             stage[box.dataset.flag] = box.checked;
         }
-        for (const color of row.querySelectorAll('input[type="color"]')) {
-            stage[color.dataset.theme][color.dataset.key] = color.value;
+        const colors = { light: {}, dark: {} };
+        for (const input of row.querySelectorAll('input[type="color"]')) {
+            colors[input.dataset.theme][input.dataset.key] = input.value;
         }
+        stage.light = { color: colors.light.color, bg: colors.light.bg };
+        stage.dark = { color: colors.dark.color, bg: colors.dark.bg };
+
+        stages.push(stage);
     }
+
+    return { stages };
 }
 
 // Lines are "domain" or "domain: selector1, selector2". The domain is
 // matched by pattern rather than by splitting on ':' because selectors may
-// contain colons (e.g. td[data-column-type$=":datepicker"]).
+// contain colons (e.g. td[data-column-type$=":datepicker"]). Later lines win.
 const DOMAIN_PATTERN = /^([a-z0-9*.-]+)\s*(?::\s*(.+))?$/i;
 
 function parseWhitelist(text) {
     const map = {};
+    const skipped = [];
     for (const line of text.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) continue;
         const match = trimmed.match(DOMAIN_PATTERN);
-        if (!match) continue;
+        if (!match) {
+            skipped.push(trimmed);
+            continue;
+        }
         const selectors = (match[2] || '')
             .split(',')
             .map(selector => selector.trim())
             .filter(Boolean);
         map[match[1].toLowerCase()] = selectors;
     }
-    return map;
+    return { map, skipped };
 }
 
 function formatWhitelist(map) {
@@ -156,34 +200,62 @@ function applyView() {
     fuzzyToggle.checked = settings.fuzzy;
     themeMode.value = settings.theme;
     debugToggle.checked = settings.debug;
-    enabledToggle.checked = settings.enabled;    renderFormats();
+    enabledToggle.checked = settings.enabled;
+    renderFormats();
     renderStages();
 }
 
 async function save() {
-    settings.whitelist = parseWhitelist(whitelistBox.value);
-    settings.dayFirst = dayFirstSelect.value === 'day';
-    settings.fuzzy = fuzzyToggle.checked;
-    settings.theme = themeMode.value;
-    settings.debug = debugToggle.checked;
-    settings.enabled = enabledToggle.checked;
-    settings.disabledFormats = Array.from(formatList.querySelectorAll('input[type="checkbox"]'))
-        .filter(box => !box.checked)
-        .map(box => box.dataset.formatId);
-    collectStages();
-    await DH.settings.save(settings);
-    showStatus('Saved.');
+    const read = readStages();
+    if (read.error) {
+        showStatus(read.error, true);
+        return;
+    }
+    const sites = parseWhitelist(whitelistBox.value);
+    const next = {
+        enabled: enabledToggle.checked,
+        whitelist: sites.map,
+        dayFirst: dayFirstSelect.value === 'day',
+        fuzzy: fuzzyToggle.checked,
+        theme: themeMode.value,
+        disabledFormats: Array.from(formatList.querySelectorAll('input[type="checkbox"]'))
+            .filter(box => !box.checked)
+            .map(box => box.dataset.formatId),
+        debug: debugToggle.checked,
+        stages: read.stages
+    };
+
+    // Cleared before the write so edits typed while it is in flight keep the
+    // page dirty instead of being silently dropped.
+    dirty = false;
+    settings = await DH.settings.save(next) || settings;
+    lastSaved = JSON.stringify(settings);
+    reloadButton.hidden = true;
+    applyView();
+    const skipped = sites.skipped.length;
+    showStatus(skipped
+        ? 'Saved. Ignored ' + skipped + ' unreadable site line' + (skipped === 1 ? '.' : 's.')
+        : 'Saved.');
 }
 
-function showStatus(text) {
+function showStatus(text, isError) {
     statusLabel.textContent = text;
-    setTimeout(() => { statusLabel.textContent = ''; }, 2000);
+    statusLabel.classList.toggle('error', !!isError);
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => {
+        statusLabel.textContent = '';
+        statusLabel.classList.remove('error');
+    }, 3000);
 }
 
-saveButton.addEventListener('click', () => save().catch(err => showStatus('Save failed: ' + err.message)));
+saveButton.addEventListener('click', () => {
+    save().catch(err => showStatus('Save failed: ' + (err && err.message ? err.message : err), true));
+});
+
 themeMode.addEventListener('change', () => {
     DH.settings.applyTheme(Object.assign({}, settings, { theme: themeMode.value }));
 });
+
 const advancedSection = document.getElementById('advanced-section');
 const advancedToggle = advancedSection.querySelector('.collapse-toggle');
 const advancedBody = advancedSection.querySelector('.collapse-body');
@@ -194,16 +266,51 @@ advancedToggle.addEventListener('click', () => {
     advancedToggle.setAttribute('aria-expanded', String(open));
 });
 
+reloadButton.addEventListener('click', async () => {
+    dirty = false;
+    lastSaved = null;
+    settings = await DH.settings.load();
+    DH.settings.applyTheme(settings);
+    reloadButton.hidden = true;
+    applyView();
+    showStatus('Reloaded.');
+});
+
 resetButton.addEventListener('click', async () => {
-    settings = JSON.parse(JSON.stringify(DH.settings.DEFAULTS));
-    await DH.settings.save(settings);
+    if (!confirm('Reset all settings to their defaults? Your site list is kept.')) return;
+    const defaults = JSON.parse(JSON.stringify(DH.settings.DEFAULTS));
+    defaults.whitelist = settings.whitelist;
+    dirty = false;
+    settings = await DH.settings.save(defaults) || settings;
+    lastSaved = JSON.stringify(settings);
+    reloadButton.hidden = true;
     applyView();
     showStatus('Reset to defaults.');
 });
 
+// Any edit marks the page dirty so an external change cannot silently
+// overwrite unsaved work. Programmatic value assignment fires no events.
+document.addEventListener('input', () => { dirty = true; });
+document.addEventListener('change', () => { dirty = true; });
+
+chrome.storage.onChanged.addListener(async (changes, area) => {
+    if (area !== 'sync' || !changes.settings) return;
+    const loaded = await DH.settings.load();
+    // Chrome delivers the change back to the page that wrote it too.
+    if (lastSaved !== null && JSON.stringify(loaded) === lastSaved) return;
+    if (dirty) {
+        reloadButton.hidden = false;
+        showStatus('Settings changed in another tab. Reload to pick them up.', true);
+        return;
+    }
+    lastSaved = null;
+    settings = loaded;
+    DH.settings.applyTheme(settings);
+    applyView();
+});
+
 (async function init() {
     settings = await DH.settings.load();
-    if (!settings.disabledFormats) settings.disabledFormats = [];
     DH.settings.applyTheme(settings);
     applyView();
 })();
