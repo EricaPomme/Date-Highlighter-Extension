@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Date Highlighter",
+  "version": "0.1.0",
+  "description": "Highlights dates on whitelisted sites by urgency stage (overdue, today, soon, upcoming).",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "action": {
+    "default_title": "Date Highlighter",
+    "default_popup": "popup/popup.html"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "content/core/settings.js",
+        "content/core/status.js",
+        "content/core/detect/formats.js",
+        "content/core/detect/fuzzy.js",
+        "content/core/styles.js",
+        "content/scanner.js",
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

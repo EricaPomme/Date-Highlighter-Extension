@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Date Highlighter - Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>Date Highlighter</h1>
+
+  <section>
+    <h2>Sites</h2>
+    <p>One entry per line: a host pattern, optionally followed by CSS
+       selectors that limit highlighting to matching elements. Use
+       <code>*</code> to allow every site, <code>*.example.com</code> for a
+       domain and its subdomains, or an exact hostname such as
+       <code>jira.example.com</code>.</p>
+    <p>Examples:</p>
+    <pre>*
+example.com
+*.atlassian.net: td[data-column-type$=":datepicker"], span.date</pre>
+    <textarea id="whitelist" rows="6" spellcheck="false"></textarea>
+  </section>
+
+  <section>
+    <h2>Date formats</h2>
+    <div id="format-list"></div>
+    <div class="sub-row">
+      <label>Numeric dates like 23/10/26 are read as</label>
+      <select id="day-first">
+        <option value="day">day first (01/04/26 = 1 April 2026)</option>
+        <option value="month">month first (04/01/26 = April 1, 2026)</option>
+      </select>
+    </div>
+    <label class="row">
+      <input type="checkbox" id="fuzzy-toggle">
+      <span>Enable fuzzy dates (tomorrow, in two days, next Friday, ...)</span>
+    </label>
+  </section>
+
+  <section>
+    <h2>Stages</h2>
+    <p>Stages are day ranges relative to today. Colours apply to the
+       "highlight" text and background.</p>
+    <table id="stage-table">
+      <thead>
+        <tr>
+          <th>Stage</th><th>From</th><th>To</th><th>Highlight</th>
+          <th>Border</th><th>Bold</th><th>Italic</th><th>Underline</th>
+          <th>Light text</th><th>Light bg</th>
+          <th>Dark text</th><th>Dark bg</th>
+        </tr>
+      </thead>
+      <tbody id="stage-rows"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Theme</h2>
+    <select id="theme-mode">
+      <option value="auto">Follow system</option>
+      <option value="light">Always light</option>
+      <option value="dark">Always dark</option>
+    </select>
+  </section>
+
+  <section class="collapsible" id="advanced-section">
+    <h2><button type="button" class="collapse-toggle" aria-expanded="false">Advanced</button></h2>
+    <div class="collapse-body" hidden>
+      <label class="row">
+        <input type="checkbox" id="enabled-toggle">
+        <span>Enable Date Highlighter (master switch)</span>
+      </label>
+      <label class="row">
+        <input type="checkbox" id="debug-toggle">
+        <span>Debug logging (writes boot and scan diagnostics to the page console)</span>
+      </label>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button id="save" type="button">Save</button>
+    <button id="reset" type="button">Reset to defaults</button>
+    <span id="status"></span>
+  </div>
+
+  <script src="../content/core/settings.js"></script>
+  <script src="../content/core/detect/formats.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

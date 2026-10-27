@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>Date Highlighter</h1>
+
+  <div class="buttons">
+    <button id="track-site" type="button"></button>
+    <button id="open-options" type="button">Settings</button>
+  </div>
+
+  <h2>Date formats</h2>
+  <div id="format-list"></div>
+  <label class="row">
+    <input type="checkbox" id="fuzzy-toggle">
+    <span>Fuzzy dates (tomorrow, in two days, ...)</span>
+  </label>
+
+  <script src="../content/core/settings.js"></script>
+  <script src="../content/core/detect/formats.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+/* popup.css */
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #555555;
+  --border: #cccccc;
+  --button-bg: #f0f0f0;
+  --button-fg: #1a1a1a;
+  --button-hover: #e2e2e2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --fg: #eaeaea;
+    --muted: #aaaaaa;
+    --border: #444444;
+    --button-bg: #333333;
+    --button-fg: #eaeaea;
+    --button-hover: #3d3d3d;
+  }
+}
+
+/* Forced themes (set via data-theme on <html> from popup.js). */
+:root[data-theme='dark'] {
+  --bg: #1e1e1e;
+  --fg: #eaeaea;
+  --muted: #aaaaaa;
+  --border: #444444;
+  --button-bg: #333333;
+  --button-fg: #eaeaea;
+  --button-hover: #3d3d3d;
+}
+
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #555555;
+  --border: #cccccc;
+  --button-bg: #f0f0f0;
+  --button-fg: #1a1a1a;
+  --button-hover: #e2e2e2;
+}
+
+body {
+  width: 260px;
+  margin: 0;
+  padding: 12px;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+h1 {
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+h2 {
+  font-size: 12px;
+  margin: 12px 0 4px;
+  color: var(--muted);
+}
+
+.buttons {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.buttons button {
+  flex: 1;
+  padding: 6px;
+  background: var(--button-bg);
+  color: var(--button-fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.buttons button:hover:not(:disabled) {
+  background: var(--button-hover);
+}
+
+.buttons button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}

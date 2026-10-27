@@ -1,0 +1,158 @@
+/* options.css */
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #555555;
+  --border: #cccccc;
+  --button-bg: #f0f0f0;
+  --button-fg: #1a1a1a;
+  --button-hover: #e2e2e2;
+  --ok: #1a7f37;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --fg: #eaeaea;
+    --muted: #aaaaaa;
+    --border: #444444;
+    --button-bg: #333333;
+    --button-fg: #eaeaea;
+    --button-hover: #3d3d3d;
+    --ok: #5bd07a;
+  }
+}
+
+/* Forced themes (set via data-theme on <html> from options.js). */
+:root[data-theme='dark'] {
+  --bg: #1e1e1e;
+  --fg: #eaeaea;
+  --muted: #aaaaaa;
+  --border: #444444;
+  --button-bg: #333333;
+  --button-fg: #eaeaea;
+  --button-hover: #3d3d3d;
+  --ok: #5bd07a;
+}
+
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #555555;
+  --border: #cccccc;
+  --button-bg: #f0f0f0;
+  --button-fg: #1a1a1a;
+  --button-hover: #e2e2e2;
+  --ok: #1a7f37;
+}
+
+body {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+section {
+  margin-bottom: 24px;
+}
+
+h1 {
+  font-size: 20px;
+}
+
+h2 {
+  font-size: 15px;
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+
+p {
+  color: var(--muted);
+}
+
+code {
+  background: var(--button-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: monospace;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+select, button {
+  background: var(--button-bg);
+  color: var(--button-fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--button-hover);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  text-align: left;
+  font-size: 13px;
+}
+
+td input[type="number"] {
+  width: 70px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+input[type="color"] {
+  width: 42px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.sub-row {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#status {
+  color: var(--ok);
+}
