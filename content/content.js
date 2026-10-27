@@ -10,6 +10,20 @@
 
     let active = false;
 
+    function activate(settings, scope) {
+        DH.styles.inject(settings);
+        // scanner.start() tears down any previous run first, so this also
+        // handles live settings edits.
+        DH.scanner.start(settings, scope);
+        active = true;
+    }
+
+    function deactivate() {
+        DH.scanner.stop();
+        DH.styles.remove();
+        active = false;
+    }
+
     async function boot() {
         const settings = await DH.settings.load();
         const scope = DH.settings.hostAllowed(settings.whitelist, location.hostname);
@@ -21,9 +35,7 @@
         if (!settings.enabled || scope === null) {
             return; // no styles, no scanning, no observers
         }
-        DH.styles.inject(settings);
-        DH.scanner.start(settings, scope);
-        active = true;
+        activate(settings, scope);
     }
 
     // Settings edits from the popup/options page apply to open tabs live.
@@ -34,17 +46,11 @@
             ? DH.settings.hostAllowed(settings.whitelist, location.hostname)
             : null;
 
-        if (scope !== null && !active) {
-            DH.styles.inject(settings);
-            DH.scanner.start(settings, scope);
-            active = true;
-        } else if (scope !== null && active) {
-            DH.styles.inject(settings);
-            DH.scanner.restart(settings, scope);
-        } else if (scope === null && active) {
-            DH.scanner.stop();
-            active = false;
+        if (scope === null) {
+            if (active) deactivate();
+            return;
         }
+        activate(settings, scope);
     });
 
     boot();

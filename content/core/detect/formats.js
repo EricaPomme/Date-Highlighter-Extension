@@ -93,9 +93,14 @@
     ];
 
     // All matches found by every enabled format in `text`, sorted by position.
+    // Formats listed in settings.disabledFormats are skipped.
     function findMatches(text, settings) {
+        const disabled = new Set(
+            (settings && Array.isArray(settings.disabledFormats)) ? settings.disabledFormats : []
+        );
         const matches = [];
         for (const format of FORMATS) {
+            if (disabled.has(format.id)) continue;
             format.regex.lastIndex = 0;
             let m;
             while ((m = format.regex.exec(text)) !== null) {

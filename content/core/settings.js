@@ -1,10 +1,17 @@
-// settings.js -- storage access and defaults for Date Highlighter.
+// settings.js -- storage access, defaults, and validation for Date Highlighter.
 // Loaded in the content-script world; exposes window.DH.settings.
+// Every value that leaves storage passes through merge(), so callers can rely
+// on types, ranges, and colours no matter what is stored.
 (function () {
     'use strict';
 
     const SCHEMA_VERSION = 1;
     const STORAGE_KEY = 'settings';
+
+    const THEMES = ['auto', 'light', 'dark'];
+    const STYLE_FLAGS = ['border', 'bold', 'italic', 'underline'];
+    const DAY_LIMIT = 36500;
+    const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
     // Stage bounds are day offsets relative to today (0 = today, negative = past).
     // min/max are inclusive. Stages are checked in array order; first match wins.
@@ -63,32 +70,127 @@
         // Theme applies to page highlights and the extension's own UI pages.
         // 'auto' follows prefers-color-scheme; 'light' and 'dark' force a theme.
         theme: 'auto',
+        // Format ids from DH.formats that detection must skip.
         disabledFormats: [],
         // Logs boot decisions and scan counts to the page console.
         debug: false,
         stages: defaultStages()
     };
 
-    // Shallow merge for scalars; stages merge by id so new default stages
-    // survive schema bumps and stored stages keep user colour edits. Labels
-    // are display-only and always come from the defaults, so stale stored
-    // labels (e.g. old "(x-y days)" suffixes) never resurface.
+    function isObject(value) {
+        return !!value && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    // Plain-data clone; defaults and stored settings hold JSON-safe values only.
+    function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    function bool(value, fallback) {
+        return typeof value === 'boolean' ? value : fallback;
+    }
+
+    function boundedInt(value, fallback) {
+        return (Number.isInteger(value) && Math.abs(value) <= DAY_LIMIT) ? value : fallback;
+    }
+
+    function color(value, fallback) {
+        return (typeof value === 'string' && HEX_COLOR.test(value.trim())) ? value.trim() : fallback;
+    }
+
+    // Stage ranges merge by id so new default stages survive future defaults
+    // and stored stages keep user edits. Labels are display-only and always
+    // come from the defaults, so stale stored labels never resurface.
+    // A range is only applied when both bounds are valid and ordered, so a
+    // corrupted value can never half-apply a stage.
     function mergeStages(defaults, stored) {
-        if (!Array.isArray(stored)) return defaults;
-        const byId = new Map(stored.map(s => [s.id, s]));
-        return defaults.map(d => {
-            const s = byId.get(d.id);
-            if (!s) return d;
-            const overlay = Object.assign({}, s);
-            delete overlay.label;
-            return Object.assign({}, d, overlay);
-        });
+        const stages = clone(defaults);
+        if (!Array.isArray(stored)) return stages;
+        const byId = new Map();
+        for (const stage of stored) {
+            if (isObject(stage) && typeof stage.id === 'string') byId.set(stage.id, stage);
+        }
+        for (const stage of stages) {
+            const saved = byId.get(stage.id);
+            if (!saved) continue;
+            const min = boundedInt(saved.min, null);
+            const max = boundedInt(saved.max, null);
+            if (min !== null && max !== null && min <= max) {
+                stage.min = min;
+                stage.max = max;
+            }
+            stage.highlight = bool(saved.highlight, stage.highlight);
+            for (const flag of STYLE_FLAGS) stage[flag] = bool(saved[flag], stage[flag]);
+            for (const themeName of ['light', 'dark']) {
+                const palette = isObject(saved[themeName]) ? saved[themeName] : {};
+                stage[themeName] = {
+                    color: color(palette.color, stage[themeName].color),
+                    bg: color(palette.bg, stage[themeName].bg)
+                };
+            }
+        }
+        return stages;
+    }
+
+    // Format ids are filtered against the registry when it is already loaded,
+    // so a stale id never disables anything by accident.
+    function normalizeFormats(raw) {
+        if (!Array.isArray(raw)) return [];
+        const registry = (window.DH && DH.formats && Array.isArray(DH.formats.FORMATS))
+            ? new Set(DH.formats.FORMATS.map(format => format.id))
+            : null;
+        const ids = [];
+        for (const value of raw) {
+            const id = String(value);
+            if (registry && !registry.has(id)) continue;
+            if (!ids.includes(id)) ids.push(id);
+        }
+        return ids;
+    }
+
+    // Coerces stored whitelist data into the map form. Legacy array
+    // whitelists (plain domain strings from schema 1) become whole-page
+    // entries: every entry maps to an empty selector list. A malformed
+    // selector list is treated as an empty one (whole page) so a corrupted
+    // entry cannot silently stop matching.
+    function normalizeWhitelist(raw) {
+        if (Array.isArray(raw)) {
+            const map = {};
+            for (const entry of raw) {
+                const key = String(entry).trim().toLowerCase();
+                if (key) map[key] = [];
+            }
+            return map;
+        }
+        if (!isObject(raw)) return {};
+        const map = {};
+        for (const [pattern, selectors] of Object.entries(raw)) {
+            const key = String(pattern).trim().toLowerCase();
+            if (!key) continue;
+            if (!Array.isArray(selectors)) {
+                map[key] = [];
+                continue;
+            }
+            map[key] = selectors
+                .filter(selector => typeof selector === 'string')
+                .map(selector => selector.trim())
+                .filter(Boolean);
+        }
+        return map;
     }
 
     function merge(defaults, stored) {
-        const out = Object.assign({}, defaults, stored);
-        out.stages = mergeStages(defaults.stages, stored.stages);
-        out.whitelist = normalizeWhitelist(stored.whitelist);
+        const src = isObject(stored) ? stored : {};
+        const out = clone(defaults);
+        out.schemaVersion = SCHEMA_VERSION;
+        out.enabled = bool(src.enabled, defaults.enabled);
+        out.dayFirst = bool(src.dayFirst, defaults.dayFirst);
+        out.fuzzy = bool(src.fuzzy, defaults.fuzzy);
+        out.debug = bool(src.debug, defaults.debug);
+        out.theme = THEMES.includes(src.theme) ? src.theme : defaults.theme;
+        out.disabledFormats = normalizeFormats(src.disabledFormats);
+        out.whitelist = normalizeWhitelist(src.whitelist);
+        out.stages = mergeStages(defaults.stages, src.stages);
         return out;
     }
 
@@ -104,24 +206,11 @@
         return merge(DEFAULTS, stored);
     }
 
+    // Validates before writing so invalid values never reach storage, and
+    // resolves with what was stored so callers can refresh their view.
     function save(settings) {
-        settings.schemaVersion = SCHEMA_VERSION;
-        return chrome.storage.sync.set({ [STORAGE_KEY]: settings });
-    }
-
-    // Coerces stored whitelist data into the map form. Legacy array
-    // whitelists (plain domain strings from schema 1) become whole-page
-    // entries: every entry maps to an empty selector list.
-    function normalizeWhitelist(raw) {
-        if (Array.isArray(raw)) {
-            const map = {};
-            for (const entry of raw) {
-                const key = String(entry).trim().toLowerCase();
-                if (key) map[key] = [];
-            }
-            return map;
-        }
-        return (raw && typeof raw === 'object') ? raw : {};
+        const clean = merge(DEFAULTS, settings);
+        return chrome.storage.sync.set({ [STORAGE_KEY]: clean }).then(() => clean);
     }
 
     // Resolves a hostname against the whitelist map. Returns the selector
@@ -151,6 +240,53 @@
         return merged.length ? merged : null;
     }
 
+    // How a hostname is covered by the whitelist, for labelling controls:
+    //   { tracked, exact, pattern }
+    // exact is true only when an entry is keyed on this hostname; a wildcard
+    // that happens to cover the host reports its own pattern instead, so the
+    // UI never claims to untrack something it cannot remove.
+    function siteState(whitelist, hostname) {
+        const map = normalizeWhitelist(whitelist);
+        const host = String(hostname || '').trim().toLowerCase();
+        const state = { tracked: false, exact: false, pattern: null };
+        if (!host) return state;
+
+        let exact = false;
+        let wildcard = null;
+        for (const pattern of Object.keys(map)) {
+            if (pattern === host) {
+                exact = true;
+                continue;
+            }
+            if (pattern === '*') {
+                wildcard = wildcard || pattern;
+                continue;
+            }
+            if (pattern.startsWith('*.')) {
+                const base = pattern.slice(2);
+                if (host === base || host.endsWith('.' + base)) wildcard = wildcard || pattern;
+            }
+        }
+
+        if (exact) return { tracked: true, exact: true, pattern: host };
+        if (wildcard) return { tracked: true, exact: false, pattern: wildcard };
+        return state;
+    }
+
+    // Adds or removes an exact hostname entry. Wildcard entries are never
+    // touched, so removing a site can never widen what gets scanned.
+    function toggleSite(whitelist, hostname) {
+        const map = clone(normalizeWhitelist(whitelist));
+        const host = String(hostname || '').trim().toLowerCase();
+        if (!host) return map;
+        if (Object.prototype.hasOwnProperty.call(map, host)) {
+            delete map[host];
+        } else {
+            map[host] = []; // empty selectors = whole page
+        }
+        return map;
+    }
+
     // Applies the user's theme preference to an extension page: 'auto'
     // removes the override so prefers-color-scheme applies; 'light'/'dark'
     // set data-theme, which the stylesheets use to force a palette.
@@ -164,5 +300,8 @@
     }
 
     window.DH = window.DH || {};
-    DH.settings = { load, save, hostAllowed, normalizeWhitelist, applyTheme, DEFAULTS, SCHEMA_VERSION };
+    DH.settings = {
+        load, save, merge, hostAllowed, siteState, toggleSite,
+        normalizeWhitelist, applyTheme, DEFAULTS, SCHEMA_VERSION
+    };
 })();
