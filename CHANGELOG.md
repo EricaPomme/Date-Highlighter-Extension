@@ -2,12 +2,13 @@
 
 ## Table of Contents
 
+- [Version 1.2.0](#version-120---2026-10-28)
 - [Version 1.1.0](#version-110---2026-10-28)
 - [Version 1.0.0](#version-100---2026-10-27)
 
-## Recent Changes
+## Version 1.2.0 - 2026-10-28
 
-### Added
+### Added - 1.2.0
 
 - Toolbar and store icons: the extension now shows its calendar mark in the browser toolbar and in store listings.
 
