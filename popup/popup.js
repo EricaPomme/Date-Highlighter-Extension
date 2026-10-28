@@ -17,7 +17,7 @@ let statusTimer = null;
 
 async function getActiveHostname() {
     try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const [tab] = await DH.api.tabs.query({ active: true, currentWindow: true });
         if (!tab || !tab.url) return null;
         const url = new URL(tab.url);
         return url.protocol.startsWith('http') ? url.hostname.toLowerCase() : null;
@@ -95,7 +95,7 @@ trackButton.addEventListener('click', () => {
 });
 
 openOptions.addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
+    DH.api.runtime.openOptionsPage();
 });
 
 fuzzyToggle.addEventListener('change', () => {

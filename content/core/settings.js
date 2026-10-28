@@ -197,7 +197,7 @@
     async function load() {
         let stored = {};
         try {
-            const result = await chrome.storage.sync.get(STORAGE_KEY);
+            const result = await DH.api.storage.sync.get(STORAGE_KEY);
             if (result && result[STORAGE_KEY]) stored = result[STORAGE_KEY];
         } catch (err) {
             // Storage unavailable (e.g. policy); fall back to defaults.
@@ -210,7 +210,7 @@
     // resolves with what was stored so callers can refresh their view.
     function save(settings) {
         const clean = merge(DEFAULTS, settings);
-        return chrome.storage.sync.set({ [STORAGE_KEY]: clean }).then(() => clean);
+        return DH.api.storage.sync.set({ [STORAGE_KEY]: clean }).then(() => clean);
     }
 
     // Resolves a hostname against the whitelist map. Returns the selector

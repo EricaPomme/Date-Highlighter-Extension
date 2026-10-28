@@ -39,7 +39,7 @@
     }
 
     // Settings edits from the popup/options page apply to open tabs live.
-    chrome.storage.onChanged.addListener(async (changes, area) => {
+    DH.api.storage.onChanged.addListener(async (changes, area) => {
         if (area !== 'sync' || !changes.settings) return;
         const settings = await DH.settings.load();
         const scope = settings.enabled

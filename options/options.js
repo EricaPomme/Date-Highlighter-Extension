@@ -293,7 +293,7 @@ resetButton.addEventListener('click', async () => {
 document.addEventListener('input', () => { dirty = true; });
 document.addEventListener('change', () => { dirty = true; });
 
-chrome.storage.onChanged.addListener(async (changes, area) => {
+DH.api.storage.onChanged.addListener(async (changes, area) => {
     if (area !== 'sync' || !changes.settings) return;
     const loaded = await DH.settings.load();
     // Chrome delivers the change back to the page that wrote it too.
