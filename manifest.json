@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Date Highlighter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Highlights dates on whitelisted sites by urgency stage (overdue, today, soon, upcoming).",
   "browser_specific_settings": {
     "gecko": {
