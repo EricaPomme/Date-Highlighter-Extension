@@ -203,48 +203,68 @@ to confirm after touching date math.
 
 ## Packaging
 
-`pack.ps1` builds two versioned archives into `dist\`, reading the version from
-`manifest.json`:
+Two platform trios build the same two versioned archives into `dist/`, reading
+the version from `manifest.json`:
 
 - `Date-Highlighter-<version>.zip` - the store package: the extension payload
   with `manifest.json` at the archive root, ready for the Chrome Web Store,
-  Edge Add-ons, or addons.mozilla.org. One archive serves all three.
-- `Date-Highlighter-<version>-bundle.zip` - the same payload plus `install.ps1`
-  inside a single `Date-Highlighter\` folder. Extract it into the install
-  location directly, or extract it anywhere and run the bundled `install.ps1`.
+  Edge Add-ons, or addons.mozilla.org. One archive serves all three, and it
+  stays a `.zip` on every platform because the stores require zip uploads.
+- `Date-Highlighter-<version>-bundle.zip` (Windows) or
+  `Date-Highlighter-<version>-bundle.tar.gz` (Unix) - the same payload plus the
+  platform installer inside a single `Date-Highlighter/` folder. Extract it
+  into the install location directly, or extract it anywhere and run the
+  bundled installer.
+
+Both trios copy the same payload (`manifest.json`, `content/`, `popup/`,
+`options/`), skip the same exclusions (`.git`, `node_modules`, `tests`, `dist`,
+`web-ext-artifacts`), clean the same artifact folders, and support a dry run:
+`-WhatIf` on PowerShell, `-n` on POSIX sh.
+
+### Windows (PowerShell 5.1 and 7+)
 
 ```powershell
 .\pack.ps1                          # both archives into dist\
 .\pack.ps1 -OutputPath D:\Builds    # somewhere else
 .\pack.ps1 -WhatIf                  # report without writing
-```
 
-`install.ps1` copies the payload into an unpacked-extension folder and replaces
-any previous install, so no stale file survives an upgrade. It defaults to
-`%LOCALAPPDATA%\Date-Highlighter\extension` and prints the load steps for Edge,
-Chrome, and Firefox:
-
-```powershell
-.\install.ps1
+.\install.ps1                       # %LOCALAPPDATA%\Date-Highlighter\extension
 .\install.ps1 -Destination D:\Extensions\Date-Highlighter
 .\install.ps1 -WhatIf
-```
 
-`cleanup.ps1` removes only the artifact folders this repository produces
-(`dist\`, `web-ext-artifacts\`); the sources, `node_modules`, and an installed
-copy are left alone. Removing an installed copy is a manual delete of the
-destination folder.
-
-```powershell
-.\cleanup.ps1
+.\cleanup.ps1                       # removes dist\ and web-ext-artifacts\
 .\cleanup.ps1 -WhatIf
 ```
 
-All three scripts support `-WhatIf`, keep their payload and exclusion lists in
-sync, and run on Windows PowerShell 5.1 and PowerShell 7+. Run
-`npx web-ext lint` before packaging to validate the manifest for Firefox; the
-archives themselves exclude `tests\`, `node_modules\`, and the packaging
-scripts.
+### macOS, Linux, BSD (POSIX sh)
+
+```sh
+./pack.sh                           # both archives into dist/
+./pack.sh -o /tmp/builds            # somewhere else
+
+./install.sh                        # ${XDG_DATA_HOME:-$HOME/.local/share}/Date-Highlighter/extension
+./install.sh -p ~/extensions/Date-Highlighter
+DEST=~/extensions/Date-Highlighter ./install.sh
+./install.sh -n                     # report without writing
+
+./cleanup.sh                        # removes dist/ and web-ext-artifacts/
+./cleanup.sh -n
+./cleanup.sh -p /path/to/checkout   # clean another checkout
+```
+
+`pack.sh` needs `tar`, plus Info-ZIP `zip` or `python3` for the store package
+(`zip` is preferred when both are present). `install.sh` clean-replaces an
+existing install, so no stale file survives an upgrade; a destination that
+cannot be written exits non-zero with the manual `mkdir -p` command and a note
+that system locations may need `sudo`. The sh scripts are dash-compatible
+(`sh -n` clean, verified under dash and bash); `cleanup.sh` refuses to delete
+anything unless the root holds `.git` or `manifest.json`, and every `rm -rf`
+passes through an allowlist and prefix guard.
+
+Run `npx web-ext lint` before packaging to validate the manifest for Firefox;
+both trios exclude `tests/`, `node_modules/`, and the packaging scripts from the
+archives. The payload, exclusion, and artifact lists are duplicated per script
+by design so each one stays standalone; when they change, update all six.
 
 ## Deferred
 
