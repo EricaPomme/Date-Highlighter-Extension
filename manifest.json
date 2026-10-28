@@ -5,7 +5,7 @@
   "description": "Highlights dates on whitelisted sites by urgency stage (overdue, today, soon, upcoming).",
   "browser_specific_settings": {
     "gecko": {
-      "id": "date-highlighter@example.com",
+      "id": "DateHighlighterExt@pomme.cafe",
       "strict_min_version": "146.0",
       "data_collection_permissions": {
         "required": ["none"]

@@ -602,6 +602,8 @@ test('extension pages and the manifest are wired consistently', async () => {
     const gecko = manifest.browser_specific_settings && manifest.browser_specific_settings.gecko;
     assert.ok(gecko, 'manifest needs browser_specific_settings.gecko for Firefox');
     assert.ok(gecko.id, 'storage.sync needs a stable add-on ID in Firefox');
+    assert.ok(!/@example\.(com|org|net)$/.test(gecko.id),
+        'the manifest must not ship a placeholder add-on ID');
     assert.ok(gecko.data_collection_permissions.required.includes('none'),
         'AMO needs the data collection declaration');
     assert.strictEqual(manifest.content_scripts[0].js[0], 'content/core/api.js',

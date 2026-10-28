@@ -169,7 +169,8 @@ Firefox notes:
 - `browser_specific_settings.gecko.id` is required. Without it a temporary
   (developer) install receives a temporary add-on ID and every `storage.sync`
   call is rejected, which leaves the extension with defaults and failed saves.
-  Replace the placeholder ID with one you control before submitting to AMO.
+  The published ID is `DateHighlighterExt@pomme.cafe`; changing it after
+  release would register a different add-on, so treat it as fixed.
 - `gecko.data_collection_permissions.required` must list `none`: the extension
   transmits nothing, and AMO requires the declaration for new submissions.
 - `gecko.strict_min_version` is `146.0`, which buys the CSS Custom Highlight
