@@ -591,9 +591,14 @@ test('extension pages and the manifest are wired consistently', async () => {
     for (const entry of manifest.content_scripts) {
         for (const file of entry.js) referenced.push(file);
     }
+    // Icons are raster files the browser loads directly, so a wrong path shows
+    // up as a blank toolbar button rather than as an error anywhere.
+    for (const path of Object.values(manifest.icons || {})) referenced.push(path);
+    for (const path of Object.values(manifest.action.default_icon || {})) referenced.push(path);
     for (const file of referenced) {
         assert.ok(fs.existsSync(path.join(ROOT, file)), 'manifest references missing file ' + file);
     }
+    assert.ok(manifest.icons && manifest.icons['128'], 'the store listing needs a 128px icon');
     assert.ok(!manifest.permissions.includes('tabs'), 'activeTab replaces the tabs permission');
     assert.ok(manifest.permissions.includes('activeTab'));
 

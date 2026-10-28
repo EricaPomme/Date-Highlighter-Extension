@@ -22,7 +22,7 @@
 set -eu
 
 ARTIFACT_DIRS='dist web-ext-artifacts'
-PROTECTED_ITEMS='manifest.json content popup options tests install.sh pack.sh cleanup.sh'
+PROTECTED_ITEMS='manifest.json content popup options icons tests install.sh pack.sh cleanup.sh'
 MARKERS='.git manifest.json'
 
 # This script sits at the repository root, so its directory is the repository.

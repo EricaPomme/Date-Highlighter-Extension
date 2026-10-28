@@ -4,10 +4,10 @@
     Installs Date Highlighter as an unpacked browser extension.
 
 .DESCRIPTION
-    Copies the extension payload (manifest.json, content, popup, options) into a
-    destination folder so a browser can load it from a stable path. The install
-    is a clean replace: an existing destination folder is removed first, so no
-    file from an earlier install can survive an upgrade.
+    Copies the extension payload (manifest.json, content, popup, options, icons)
+    into a destination folder so a browser can load it from a stable path. The
+    install is a clean replace: an existing destination folder is removed first,
+    so no file from an earlier install can survive an upgrade.
 
     The destination defaults to a per-user folder under LOCALAPPDATA. Pass
     -Destination to install somewhere else; a relative path resolves against the
@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
 
 # Payload and exclusions are duplicated across install.ps1, pack.ps1, and
 # cleanup.ps1 by design: each script stays standalone and dot-source-free.
-$payloadItems = @('manifest.json', 'content', 'popup', 'options')
+$payloadItems = @('manifest.json', 'content', 'popup', 'options', 'icons')
 $excludedDirs = @('.git', 'node_modules', 'tests', 'dist', 'web-ext-artifacts')
 $extensionName = 'Date Highlighter'
 

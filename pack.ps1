@@ -4,8 +4,8 @@
     Builds the Date Highlighter store package and distribution bundle.
 
 .DESCRIPTION
-    Stages the extension payload (manifest.json, content, popup, options) and
-    writes two versioned archives into dist\:
+    Stages the extension payload (manifest.json, content, popup, options, icons)
+    and writes two versioned archives into dist\:
 
     - Date-Highlighter-<version>.zip is the store package. manifest.json sits at
       the archive root, which is what the Chrome Web Store, Edge Add-ons, and
@@ -48,7 +48,7 @@ $ErrorActionPreference = 'Stop'
 
 # Payload and exclusions are duplicated across install.ps1, pack.ps1, and
 # cleanup.ps1 by design: each script stays standalone and dot-source-free.
-$payloadItems = @('manifest.json', 'content', 'popup', 'options')
+$payloadItems = @('manifest.json', 'content', 'popup', 'options', 'icons')
 $excludedDirs = @('.git', 'node_modules', 'tests', 'dist', 'web-ext-artifacts')
 $installerItem = 'install.ps1'
 $archiveName = 'Date-Highlighter'

@@ -12,7 +12,7 @@
 # ${XDG_DATA_HOME:-$HOME/.local/share}/Date-Highlighter/extension, mirroring
 # %LOCALAPPDATA%\Date-Highlighter\extension on Windows.
 #
-# Payload:  manifest.json content popup options
+# Payload:  manifest.json content popup options icons
 # Excluded: .git node_modules tests dist web-ext-artifacts
 #
 # Standalone POSIX sh: no bashisms and no dependencies beyond POSIX tools.
@@ -21,7 +21,7 @@
 # portability contract shared by the packaging skills).
 set -eu
 
-PAYLOAD_ITEMS='manifest.json content popup options'
+PAYLOAD_ITEMS='manifest.json content popup options icons'
 EXCLUDED_DIRS='.git node_modules tests dist web-ext-artifacts'
 EXTENSION_NAME='Date Highlighter'
 

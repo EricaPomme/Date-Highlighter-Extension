@@ -3,6 +3,12 @@
   "name": "Date Highlighter",
   "version": "1.1.0",
   "description": "Highlights dates on whitelisted sites by urgency stage (overdue, today, soon, upcoming).",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "DateHighlighterExt@pomme.cafe",
@@ -18,6 +24,10 @@
   ],
   "action": {
     "default_title": "Date Highlighter",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    },
     "default_popup": "popup/popup.html"
   },
   "options_ui": {

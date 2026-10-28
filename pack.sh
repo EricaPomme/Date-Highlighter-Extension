@@ -24,7 +24,7 @@
 # the store package needs Info-ZIP `zip` or `python3` on PATH (zip is preferred
 # when both are present); use pack.ps1 on Windows.
 #
-# Payload:  manifest.json content popup options
+# Payload:  manifest.json content popup options icons
 # Excluded: .git node_modules tests dist web-ext-artifacts
 #
 # Standalone POSIX sh: no bashisms and no dependencies beyond POSIX tools,
@@ -33,7 +33,7 @@
 # .ps1 trio (the portability contract shared by the packaging skills).
 set -eu
 
-PAYLOAD_ITEMS='manifest.json content popup options'
+PAYLOAD_ITEMS='manifest.json content popup options icons'
 EXCLUDED_DIRS='.git node_modules tests dist web-ext-artifacts'
 INSTALLER_ITEM='install.sh'
 ARCHIVE_NAME='Date-Highlighter'

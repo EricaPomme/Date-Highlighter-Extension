@@ -56,6 +56,7 @@ Runs in Chromium browsers (Chrome, Edge) and in Firefox.
 - `popup/` - toolbar popup
 - `options/` - full settings page (whitelist and selectors, formats, stage
   colours and thresholds, theme)
+- `icons/` - icon source (`icon.svg`) and the PNGs the manifest references
 - `tests/` - Node test suites (see [Development](#development))
 
 ## How highlighting is applied
@@ -218,9 +219,18 @@ the version from `manifest.json`:
   bundled installer.
 
 Both trios copy the same payload (`manifest.json`, `content/`, `popup/`,
-`options/`), skip the same exclusions (`.git`, `node_modules`, `tests`, `dist`,
-`web-ext-artifacts`), clean the same artifact folders, and support a dry run:
-`-WhatIf` on PowerShell, `-n` on POSIX sh.
+`options/`, `icons/`), skip the same exclusions (`.git`, `node_modules`,
+`tests`, `dist`, `web-ext-artifacts`), clean the same artifact folders, and
+support a dry run: `-WhatIf` on PowerShell, `-n` on POSIX sh.
+
+Icons are raster files because Chrome and Edge cannot load SVG icons from a
+manifest. `icons/icon.svg` is the source; `render-icons.ps1` redraws the PNGs
+from it in headless Chrome or Edge and verifies each one's dimensions:
+
+```powershell
+.\render-icons.ps1                  # 16, 32, 48, 128 into icons\
+.\render-icons.ps1 -Sizes 16,32,48,128,256
+```
 
 ### Windows (PowerShell 5.1 and 7+)
 
@@ -269,7 +279,6 @@ by design so each one stays standalone; when they change, update all six.
 
 ## Deferred
 
-Time-of-day handling, non-English month names, icons for the store listings,
-and per-site content-script registration
-(`chrome.scripting.registerContentScripts`) so the content script is not
-loaded on unlisted sites at all.
+Time-of-day handling, non-English month names, and per-site content-script
+registration (`chrome.scripting.registerContentScripts`) so the content script
+is not loaded on unlisted sites at all.

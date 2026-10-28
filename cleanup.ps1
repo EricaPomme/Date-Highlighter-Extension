@@ -39,7 +39,7 @@ $ErrorActionPreference = 'Stop'
 # Allowlist of artifact folders this repository produces. Never widen this to
 # pattern scavenging: cleanup scripts delete the wrong thing when they guess.
 $artifactDirs = @('dist', 'web-ext-artifacts')
-$protectedItems = @('manifest.json', 'content', 'popup', 'options', 'tests', 'install.ps1', 'pack.ps1', 'cleanup.ps1')
+$protectedItems = @('manifest.json', 'content', 'popup', 'options', 'icons', 'tests', 'install.ps1', 'pack.ps1', 'cleanup.ps1', 'render-icons.ps1')
 
 # This script sits at the repository root, so $PSScriptRoot is the repository.
 $root = if ($Path) { [System.IO.Path]::GetFullPath($Path) } else { $PSScriptRoot }
