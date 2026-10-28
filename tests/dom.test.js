@@ -14,6 +14,7 @@ const ROOT = path.join(__dirname, '..');
 const MARKER = 'dh-highlight';
 const OWNED = 'data-dh';
 const SCRIPT_FILES = [
+    'content/core/api.js',
     'content/core/settings.js',
     'content/core/status.js',
     'content/core/detect/formats.js',
@@ -70,6 +71,26 @@ function installHighlightApi(window) {
     return registry;
 }
 
+// The Firefox shape installs promises on browser.* and models the legacy
+// chrome.* porting alias without promise support, so a source file that
+// reaches for chrome.* cannot pass by accident.
+function callbackOnlyApi(api) {
+    const wrap = fn => (...args) => {
+        const callback = typeof args[args.length - 1] === 'function' ? args.pop() : null;
+        const promise = fn(...args);
+        if (callback) promise.then(result => callback(result));
+        return undefined;
+    };
+    return {
+        storage: {
+            sync: {
+                get: wrap((key) => api.storage.sync.get(key)),
+                set: wrap((items) => api.storage.sync.set(items))
+            }
+        }
+    };
+}
+
 function createPage(options) {
     const opts = options || {};
     const dom = new JSDOM('<!DOCTYPE html><html><head></head><body>' + (opts.html || '') + '</body></html>', {
@@ -80,7 +101,8 @@ function createPage(options) {
     const window = dom.window;
     const store = Object.assign({}, opts.stored);
     const listeners = [];
-    window.chrome = {
+    const api = {
+        runtime: {},
         storage: {
             sync: {
                 async get(key) {
@@ -94,6 +116,14 @@ function createPage(options) {
             }
         }
     };
+    // Chromium shape by default; 'browser' is the Firefox shape, where
+    // promise-based calls live on browser.* only.
+    if (opts.namespace === 'browser') {
+        window.browser = api;
+        window.chrome = callbackOnlyApi(api);
+    } else {
+        window.chrome = api;
+    }
     const clock = installFixedClock(window, opts.now || BASE);
     const registry = opts.highlightApi ? installHighlightApi(window) : null;
     const files = opts.withContent ? SCRIPT_FILES.concat('content/content.js') : SCRIPT_FILES;
@@ -495,6 +525,44 @@ test('content script stays dormant elsewhere, and when switched off', async () =
     disabled.close();
 });
 
+// --- Firefox namespace shape ----------------------------------------------
+
+test('content script works when only browser.* carries promises', async () => {
+    const page = createPage({
+        html: '<p>Due ' + TODAY + '</p>',
+        url: 'https://jira.example.com/browse/AB-1',
+        stored: { settings: { whitelist: { 'jira.example.com': [] } } },
+        withContent: true,
+        namespace: 'browser'
+    });
+    await sleep(60);
+
+    assert.strictEqual(page.window.DH.api, page.window.browser,
+        'the promise-based namespace must win over the callback-only alias');
+    assert.ok(page.document.getElementById('dh-styles'), 'settings loaded and styles injected');
+    assert.strictEqual(page.marks(), 1);
+
+    page.changeSettings({ whitelist: {} });
+    await sleep(60);
+    assert.strictEqual(page.marks(), 0, 'live updates still apply');
+    page.close();
+});
+
+test('settings round-trip through storage in the Firefox shape', async () => {
+    // Guard against resolving the callback-only namespace: that makes load()
+    // return defaults and save() throw instead of persisting.
+    const page = createPage({ html: '', namespace: 'browser' });
+    const clean = Object.assign({}, page.window.DH.settings.DEFAULTS, { whitelist: { 'a.com': ['td'] } });
+
+    const saved = await page.window.DH.settings.save(clean);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(saved.whitelist)), { 'a.com': ['td'] });
+
+    const loaded = await page.window.DH.settings.load();
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.whitelist)), { 'a.com': ['td'] },
+        'stored settings must come back rather than the defaults');
+    page.close();
+});
+
 // --- static wiring --------------------------------------------------------
 
 // Catches typos between the markup and the scripts that drive it, plus any
@@ -528,6 +596,36 @@ test('extension pages and the manifest are wired consistently', async () => {
     }
     assert.ok(!manifest.permissions.includes('tabs'), 'activeTab replaces the tabs permission');
     assert.ok(manifest.permissions.includes('activeTab'));
+
+    // Firefox requirements: an add-on ID backs storage.sync, and AMO refuses
+    // submissions without a data collection declaration.
+    const gecko = manifest.browser_specific_settings && manifest.browser_specific_settings.gecko;
+    assert.ok(gecko, 'manifest needs browser_specific_settings.gecko for Firefox');
+    assert.ok(gecko.id, 'storage.sync needs a stable add-on ID in Firefox');
+    assert.ok(gecko.data_collection_permissions.required.includes('none'),
+        'AMO needs the data collection declaration');
+    assert.strictEqual(manifest.content_scripts[0].js[0], 'content/core/api.js',
+        'the API namespace must be resolved before any file uses it');
+
+    // Extension contexts resolve their namespace once, through DH.api. Naming
+    // a namespace anywhere else would bypass it, and the chrome.* alias only
+    // returns promises in Manifest V3.
+    const apiConsumers = [
+        'content/content.js',
+        'content/scanner.js',
+        'content/core/settings.js',
+        'content/core/status.js',
+        'content/core/styles.js',
+        'content/core/detect/formats.js',
+        'content/core/detect/fuzzy.js',
+        'popup/popup.js',
+        'options/options.js'
+    ];
+    for (const file of apiConsumers) {
+        const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+        assert.ok(!/\b(?:browser|chrome)\s*\./.test(source),
+            file + ' must go through DH.api rather than naming a namespace directly');
+    }
 });
 
 // --- runner ---------------------------------------------------------------

@@ -9,9 +9,10 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = global;
-global.chrome = { storage: { sync: {} } }; // unused by load path under test
+global.chrome = { storage: { sync: {} }, runtime: {} }; // namespace stub for api.js
 
 const core = p => require(path.join(__dirname, '..', 'content', 'core', p));
+core('api.js');
 core('settings.js');
 core('status.js');
 core(path.join('detect', 'formats.js'));

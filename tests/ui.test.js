@@ -26,8 +26,8 @@ function stripScripts(html) {
     return html.replace(/<script[\s\S]*?<\/script>/g, '');
 }
 
-// Minimal chrome API surface: an in-memory sync store plus a tab URL.
-function chromeStub(window, options) {
+// Minimal extension API surface: an in-memory sync store plus a tab URL.
+function apiStub(options) {
     const opts = options || {};
     const store = Object.assign({}, opts.stored);
     return {
@@ -57,6 +57,28 @@ function chromeStub(window, options) {
     };
 }
 
+// The Firefox shape installs promises on browser.* and models the legacy
+// chrome.* porting alias without promise support, so a source file that
+// reaches for chrome.* cannot pass by accident.
+function callbackOnlyApi(api) {
+    const wrap = fn => (...args) => {
+        const callback = typeof args[args.length - 1] === 'function' ? args.pop() : null;
+        const promise = fn(...args);
+        if (callback) promise.then(result => callback(result));
+        return undefined;
+    };
+    return {
+        runtime: { openOptionsPage: () => undefined },
+        tabs: { query: wrap(() => api.tabs.query()) },
+        storage: {
+            sync: {
+                get: wrap(key => api.storage.sync.get(key)),
+                set: wrap(items => api.storage.sync.set(items))
+            }
+        }
+    };
+}
+
 function createPage(page, options) {
     const opts = options || {};
     const dom = new JSDOM(stripScripts(readSource(page.html)), {
@@ -65,7 +87,15 @@ function createPage(page, options) {
         pretendToBeVisual: true
     });
     const window = dom.window;
-    window.chrome = chromeStub(window, opts);
+    const api = apiStub(opts);
+    // Chromium shape by default; 'browser' is the Firefox shape, where
+    // promise-based calls live on browser.* only.
+    if (opts.namespace === 'browser') {
+        window.browser = api;
+        window.chrome = callbackOnlyApi(api);
+    } else {
+        window.chrome = api;
+    }
     if (opts.confirmAnswer !== undefined) {
         window.confirm = () => opts.confirmAnswer;
     }
@@ -74,19 +104,20 @@ function createPage(page, options) {
         dom,
         window,
         document: window.document,
-        chrome: window.chrome,
+        api,
         close() { dom.window.close(); }
     };
 }
 
 const POPUP = {
     html: 'popup/popup.html',
-    scripts: ['content/core/settings.js', 'content/core/detect/formats.js', 'popup/popup.js']
+    scripts: ['content/core/api.js', 'content/core/settings.js', 'content/core/detect/formats.js', 'popup/popup.js']
 };
 
 const OPTIONS = {
     html: 'options/options.html',
     scripts: [
+        'content/core/api.js',
         'content/core/settings.js',
         'content/core/detect/formats.js',
         'options/options.js'
@@ -108,13 +139,13 @@ test('popup tracks and untracks an exact hostname', async () => {
 
     button.click();
     await sleep(30);
-    assert.deepStrictEqual(plain(page.chrome.store.settings.whitelist), { 'jira.example.com': [] });
+    assert.deepStrictEqual(plain(page.api.store.settings.whitelist), { 'jira.example.com': [] });
     assert.strictEqual(button.textContent, 'Untrack jira.example.com');
     assert.strictEqual(button.disabled, false, 'an exact entry must stay removable');
 
     button.click();
     await sleep(30);
-    assert.deepStrictEqual(plain(page.chrome.store.settings.whitelist), {});
+    assert.deepStrictEqual(plain(page.api.store.settings.whitelist), {});
     assert.strictEqual(button.textContent, 'Track jira.example.com');
     page.close();
 });
@@ -133,7 +164,7 @@ test('popup names the wildcard that covers the site instead of widening it', asy
 
     button.click();
     await sleep(30);
-    assert.deepStrictEqual(plain(page.chrome.store.settings.whitelist),
+    assert.deepStrictEqual(plain(page.api.store.settings.whitelist),
         { '*.atlassian.net': ['td[data-column-type$=":datepicker"]'] },
         'the wildcard entry must be untouched');
     page.close();
@@ -161,7 +192,7 @@ test('popup format checkboxes write disabledFormats', async () => {
     boxes[0].dispatchEvent(new page.window.Event('change', { bubbles: true }));
     await sleep(30);
 
-    assert.deepStrictEqual(plain(page.chrome.store.settings.disabledFormats), [boxes[0].dataset.formatId]);
+    assert.deepStrictEqual(plain(page.api.store.settings.disabledFormats), [boxes[0].dataset.formatId]);
     page.close();
 });
 
@@ -190,7 +221,7 @@ test('options saves valid stage ranges', async () => {
     page.document.getElementById('save').click();
     await sleep(30);
 
-    const stored = page.chrome.store.settings;
+    const stored = page.api.store.settings;
     const soon = stored.stages.find(stage => stage.id === 'soon');
     assert.deepStrictEqual([soon.min, soon.max], [2, 5]);
     assert.strictEqual(page.document.getElementById('status').textContent, 'Saved.');
@@ -211,7 +242,7 @@ test('options refuses to save an unusable range', async () => {
     const status = page.document.getElementById('status');
     assert.ok(status.textContent.includes('From no greater than To'), 'got: ' + status.textContent);
     assert.ok(numbers[0].classList.contains('invalid'));
-    assert.strictEqual(page.chrome.store.settings, undefined, 'nothing written');
+    assert.strictEqual(page.api.store.settings, undefined, 'nothing written');
     page.close();
 });
 
@@ -223,7 +254,7 @@ test('options reports unreadable site lines', async () => {
     page.document.getElementById('save').click();
     await sleep(30);
 
-    const stored = page.chrome.store.settings;
+    const stored = page.api.store.settings;
     assert.deepStrictEqual(plain(stored.whitelist), { 'example.com': [], '*.a.com': ['td.x'] });
     assert.ok(page.document.getElementById('status').textContent.includes('Ignored 1 unreadable site line'),
         'got: ' + page.document.getElementById('status').textContent);
@@ -237,14 +268,14 @@ test('options reset keeps the site list and asks first', async () => {
     await sleep(30);
     declined.document.getElementById('reset').click();
     await sleep(30);
-    assert.deepStrictEqual(plain(declined.chrome.store.settings), stored.settings, 'declined reset changes nothing');
+    assert.deepStrictEqual(plain(declined.api.store.settings), stored.settings, 'declined reset changes nothing');
     declined.close();
 
     const accepted = createPage(OPTIONS, { stored: JSON.parse(JSON.stringify(stored)), confirmAnswer: true });
     await sleep(30);
     accepted.document.getElementById('reset').click();
     await sleep(30);
-    const after = accepted.chrome.store.settings;
+    const after = accepted.api.store.settings;
     assert.deepStrictEqual(plain(after.whitelist), { 'a.com': ['td.x'] }, 'sites are kept');
     assert.strictEqual(after.theme, 'auto');
     assert.strictEqual(after.fuzzy, true);
@@ -266,7 +297,7 @@ test('reset after editing cannot resurrect unsaved edits', async () => {
     page.document.getElementById('reset').click();
     await sleep(30);
 
-    const today = page.chrome.store.settings.stages.find(stage => stage.id === 'today');
+    const today = page.api.store.settings.stages.find(stage => stage.id === 'today');
     assert.deepStrictEqual([today.min, today.max], [0, 0], 'defaults must survive a reset cycle');
     page.close();
 });
@@ -276,13 +307,13 @@ test('options notices settings changed elsewhere without clobbering edits', asyn
     await sleep(30);
 
     // Clean page: an external change is applied straight away.
-    page.chrome.storage.onChanged.fire({ settings: { newValue: {} } });
+    page.api.storage.onChanged.fire({ settings: { newValue: {} } });
     await sleep(30);
     assert.strictEqual(page.document.getElementById('reload').hidden, true);
 
     // Dirty page: the change is announced instead of overwriting the editor.
     page.document.getElementById('whitelist').dispatchEvent(new page.window.Event('input', { bubbles: true }));
-    page.chrome.storage.onChanged.fire({ settings: { newValue: {} } });
+    page.api.storage.onChanged.fire({ settings: { newValue: {} } });
     await sleep(30);
     assert.strictEqual(page.document.getElementById('reload').hidden, false);
     assert.ok(page.document.getElementById('status').textContent.includes('changed in another tab'));
@@ -302,7 +333,7 @@ test('options ignores the storage echo of its own save', async () => {
     assert.strictEqual(page.document.getElementById('status').textContent, 'Saved.');
 
     // Chrome reports a page's own write back through onChanged.
-    page.chrome.storage.onChanged.fire({ settings: { newValue: page.chrome.store.settings } });
+    page.api.storage.onChanged.fire({ settings: { newValue: page.api.store.settings } });
     await sleep(30);
     assert.strictEqual(page.document.getElementById('reload').hidden, true, 'no self-inflicted notice');
     assert.strictEqual(page.document.getElementById('status').textContent, 'Saved.');
@@ -327,6 +358,38 @@ test('options renders an extension page without script errors', async () => {
     assert.deepStrictEqual(plain(errors), []);
     assert.strictEqual(page.document.querySelectorAll('#stage-rows tr').length, 6);
     assert.strictEqual(page.document.querySelectorAll('#format-list input').length, 4);
+    page.close();
+});
+
+// --- Firefox namespace shape ----------------------------------------------
+
+test('popup finds the site when only browser.* carries promises', async () => {
+    const page = createPage(POPUP, {
+        tabUrl: 'https://jira.example.com/browse/AB-1',
+        namespace: 'browser'
+    });
+    await sleep(30);
+    const button = page.document.getElementById('track-site');
+
+    assert.strictEqual(page.window.DH.api, page.window.browser,
+        'the promise-based namespace must win over the callback-only alias');
+    assert.strictEqual(button.textContent, 'Track jira.example.com');
+    assert.strictEqual(button.disabled, false, 'the tab URL must be readable');
+
+    button.click();
+    await sleep(30);
+    assert.deepStrictEqual(plain(page.api.store.settings.whitelist), { 'jira.example.com': [] });
+    page.close();
+});
+
+test('options saves when only browser.* carries promises', async () => {
+    const page = createPage(OPTIONS, { namespace: 'browser' });
+    await sleep(30);
+    page.document.getElementById('save').click();
+    await sleep(30);
+
+    assert.strictEqual(page.document.getElementById('status').textContent, 'Saved.');
+    assert.ok(page.api.store.settings, 'settings must reach storage');
     page.close();
 });
 
