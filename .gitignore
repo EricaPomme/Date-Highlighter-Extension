@@ -1,5 +1,7 @@
 # Packaging output
 *.zip
+dist/
+web-ext-artifacts/
 
 # Test tooling
 node_modules/
